@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE Raider</title>
+    <script src="https://static.line-scdn.net/liff/sdk/v2/liff.js"></script>
+    <style>
+        /* style.cssの内容をここに記述 */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #e0f2f1; /* LINEのイメージカラーに合わせた薄いグリーン */
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* 上部に寄せる */
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
+        h1, h2 {
+            color: #00b900; /* LINEグリーン */
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: calc(100% - 20px);
+            padding: 12px 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+            accent-color: #00b900; /* チェックボックスの色をLINEグリーンに */
+        }
+
+        .main-button, .secondary-button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .main-button {
+            background-color: #00c300; /* LINEグリーン */
+            color: white;
+        }
+
+        .main-button:hover {
+            background-color: #00a800; /* 少し濃いグリーン */
+        }
+
+        .secondary-button {
+            background-color: #f0f0f0; /* 薄いグレー */
+            color: #333;
+            border: 1px solid #ccc;
+            margin-top: 15px;
+        }
+
+        .secondary-button:hover {
+            background-color: #e0e0e0;
+        }
+
+        hr {
+            border: 0;
+            height: 1px;
+            background-color: #eee;
+            margin: 30px 0;
+        }
+
+        .status-message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            display: none; /* 初期状態では非表示 */
+        }
+
+        .status-message.success {
+            background-color: #e6ffe6;
+            color: #008000;
+        }
+
+        .status-message.error {
+            background-color: #ffe6e6;
+            color: #cc0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LINE Raider</h1>
+
+        <div class="input-section">
+            <label for="message">メッセージ:</label>
+            <textarea id="message" placeholder="送信するメッセージを入力してください"></textarea>
+        </div>
+
+        <div class="input-section">
+            <label for="sendCount">送信回数:</label>
+            <input type="number" id="sendCount" value="1" min="1">
+        </div>
+
+        <div class="input-section">
+            <label for="sendSpeed">送信スピード (秒):</label>
+            <input type="number" id="sendSpeed" value="1" min="0.1" step="0.1">
+        </div>
+
+        <div class="input-section checkbox-group">
+            <input type="checkbox" id="addRandomString">
+            <label for="addRandomString">ランダム文字列を追加</label>
+        </div>
+
+        <button id="sendMessageButton" class="main-button">メッセージ送信</button>
+
+        <hr>
+
+        <h2>JSON直書き</h2>
+        <div class="input-section">
+            <label for="jsonInput">JSONデータ:</label>
+            <textarea id="jsonInput" placeholder='{"messages": [{"type": "text", "text": "Hello!"}], "count": 1, "speed": 1}'></textarea>
+        </div>
+        <button id="sendJsonButton" class="secondary-button">JSONで送信</button>
+
+        <div id="status" class="status-message"></div>
+    </div>
+
+    <script>
+        
+        const LIFF_ID = "2007556850-JYwBVNQp";
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // LIFF初期化
+            liff.init({
+                liffId: LIFF_ID
+            }).then(() => {
+                // LIFFアプリがLINEアプリ内で開かれているか、またはログイン済みか確認
+                if (!liff.isLoggedIn() && !liff.isInClient()) {
+                    // LINEアプリ外で未ログインの場合、ログインを促す
+                    liff.login();
+                } else {
+                    console.log("LIFF initialized and logged in or in LINE client.");
+                }
+            }).catch((err) => {
+                console.error("LIFF initialization failed", err);
+                showStatusMessage("LIFFの初期化に失敗しました。LINEアプリから再度お試しください。", "error");
+            });
+
+            const messageInput = document.getElementById('message');
+            const sendCountInput = document.getElementById('sendCount');
+            const sendSpeedInput = document.getElementById('sendSpeed');
+            const addRandomStringCheckbox = document.getElementById('addRandomString');
+            const sendMessageButton = document.getElementById('sendMessageButton');
+            const jsonInput = document.getElementById('jsonInput');
+            const sendJsonButton = document.getElementById('sendJsonButton');
+            const statusMessageDiv = document.getElementById('status');
+
+            // ランダムな文字列生成関数
+            function generateRandomString(length) {
+                const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let result = '';
+                for (let i = 0; i < length; i++) {
+                    result += characters.charAt(Math.floor(Math.random() * characters.length));
+                }
+                return result;
+            }
+
+            // ステータスメッセージ表示関数
+            function showStatusMessage(message, type) {
+                statusMessageDiv.textContent = message;
+                statusMessageDiv.className = `status-message ${type}`;
+                statusMessageDiv.style.display = 'block';
+            }
+
+            // メッセージ送信処理
+            async function sendMessages(messages, count, speed) {
+                if (!liff.isLoggedIn()) {
+                    showStatusMessage("LINEにログインしていません。ログインしてください。", "error");
+                    liff.login(); // ログインを促す
+                    return;
+                }
+                if (!liff.isInClient()) {
+                    showStatusMessage("この機能はLINEアプリ内で動作します。", "error");
+                    return;
+                }
+
+                showStatusMessage("メッセージを送信中です...", "");
+                sendMessageButton.disabled = true;
+                sendJsonButton.disabled = true;
+
+                try {
+                    for (let i = 0; i < count; i++) {
+                        console.log(`Sending message ${i + 1}/${count}`);
+                        await liff.sendMessages(messages);
+                        if (i < count - 1) { // 最後のメッセージ送信後には待機しない
+                            await new Promise(resolve => setTimeout(resolve, speed * 1000));
+                        }
+                    }
+                    showStatusMessage(`${count}件のメッセージを送信しました！`, "success");
+                } catch (err) {
+                    console.error("メッセージ送信失敗:", err);
+                    showStatusMessage(`メッセージ送信に失敗しました: ${err.message}`, "error");
+                } finally {
+                    sendMessageButton.disabled = false;
+                    sendJsonButton.disabled = false;
+                }
+            }
+
+            // 通常メッセージ送信ボタンクリックイベント
+            sendMessageButton.addEventListener('click', () => {
+                const messageText = messageInput.value.trim();
+                if (!messageText) {
+                    showStatusMessage("送信するメッセージを入力してください。", "error");
+                    return;
+                }
+
+                let fullMessage = messageText;
+                if (addRandomStringCheckbox.checked) {
+                    fullMessage += ' ' + generateRandomString(10);
+                }
+
+                const messages = [{
+                    type: 'text',
+                    text: fullMessage
+                }];
+
+                const sendCount = parseInt(sendCountInput.value, 10);
+                const sendSpeed = parseFloat(sendSpeedInput.value);
+
+                if (isNaN(sendCount) || sendCount < 1) {
+                    showStatusMessage("送信回数は1以上の数値を入力してください。", "error");
+                    return;
+                }
+                if (isNaN(sendSpeed) || sendSpeed < 0.1) {
+                    showStatusMessage("送信スピードは0.1以上の数値を入力してください。", "error");
+                    return;
+                }
+
+                sendMessages(messages, sendCount, sendSpeed);
+            });
+
+            // JSONで送信ボタンクリックイベント
+            sendJsonButton.addEventListener('click', () => {
+                const jsonText = jsonInput.value.trim();
+                if (!jsonText) {
+                    showStatusMessage("JSONデータを入力してください。", "error");
+                    return;
+                }
+
+                try {
+                    const data = JSON.parse(jsonText);
+                    const messages = data.messages;
+                    const count = data.count || 1; // countが指定されていなければ1
+                    const speed = data.speed || 1; // speedが指定されていなければ1秒
+
+                    if (!Array.isArray(messages) || messages.length === 0) {
+                        showStatusMessage("JSONデータに有効な'messages'配列がありません。", "error");
+                        return;
+                    }
+
+                    if (isNaN(count) || count < 1) {
+                        showStatusMessage("JSON内の'count'は1以上の数値を指定してください。", "error");
+                        return;
+                    }
+                    if (isNaN(speed) || speed < 0.1) {
+                        showStatusMessage("JSON内の'speed'は0.1以上の数値を指定してください。", "error");
+                        return;
+                    }
+
+                    // LIFFで送信できるメッセージタイプかどうかの簡易チェック
+                    const isValidMessageType = messages.every(msg => {
+                        return ['text', 'sticker', 'image', 'video', 'audio', 'location', 'flex'].includes(msg.type);
+                    });
+                    if (!isValidMessageType) {
+                        showStatusMessage("JSONデータにサポートされていないメッセージタイプが含まれています。LIFFが送信できるメッセージタイプはテキスト、スタンプ、画像、動画、音声、位置情報、Flexメッセージです。", "error");
+                        return;
+                    }
+
+                    sendMessages(messages, count, speed);
+
+                } catch (e) {
+                    console.error("JSONパースエラー:", e);
+                    showStatusMessage(`JSONデータの形式が不正です: ${e.message}`, "error");
+                }
+            });
+        });
+    </script>
+</body>
+</html>
