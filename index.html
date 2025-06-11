@@ -300,9 +300,8 @@
             // LIFF初期化
             try {
                 updateStatus('LIFF SDKの初期化を開始します...', 'info');
-                // ここにあなたのLIFF IDを設定してください。
-                // 例: await liff.init({ liffId: '2007556850-JYwBVNQp' });
-                await liff.init({ liffId: 'YOUR_LIFF_ID' }); 
+                //Liff id
+                await liff.init({ liffId: '2007556850-JYwBVNQp' }); 
                 updateStatus('LIFF SDKの初期化に成功しました。', 'success');
 
                 if (!liff.isLoggedIn()) {
