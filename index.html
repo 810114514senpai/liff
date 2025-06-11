@@ -3,117 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIFFメッセージ送信アプリ</title>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <title>LINE Raider</title> <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
+        /* 全体的なスタイル設定 */
         body {
-            font-family: sans-serif;
-            margin: 20px;
-            background-color: #f0f2f5;
-            color: #333;
+            font-family: 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a; /* 背景色を黒基調に */
+            color: #e0e0e0; /* 文字色を明るいグレーに */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
         }
+
+        /* コンテナのスタイル */
+        #app-container {
+            width: 100%;
+            max-width: 500px; /* 最大幅を設定 */
+            padding: 25px;
+            background-color: #2a2a2a; /* カードの背景色 */
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            border: 1px solid #ff3b3b; /* 枠の色を赤に */
+            box-sizing: border-box;
+        }
+
+        /* タイトルのスタイル */
         h1 {
-            color: #00B900;
+            color: #ff3b3b; /* タイトル色を赤に */
             text-align: center;
             margin-bottom: 30px;
+            font-size: 2.5em; /* フォントサイズを大きく */
+            text-shadow: 0 0 10px rgba(255, 59, 59, 0.7); /* 赤い光沢 */
+            letter-spacing: 2px; /* 文字間隔 */
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ff3b3b; /* 下線を赤に */
         }
+
+        /* 各入力要素のコンテナ */
         div {
             margin-bottom: 15px;
         }
+
+        /* ラベルのスタイル */
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: bold;
+            color: #c0c0c0;
         }
+
+        /* 入力フィールドのスタイル */
         input[type="text"],
         textarea,
         input[type="number"],
-        select {
-            width: calc(100% - 16px); /* paddingを考慮 */
+        input[type="password"] {
+            width: calc(100% - 20px); /* パディングを考慮 */
             padding: 10px;
             box-sizing: border-box;
-            border: 1px solid #ccc;
+            border: 1px solid #555; /* 枠線を濃いグレーに */
             border-radius: 5px;
-            font-size: 16px;
+            font-size: 1em;
+            background-color: #3a3a3a; /* 入力欄の背景色 */
+            color: #e0e0e0; /* 入力文字色 */
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        input[type="number"]:focus,
+        input[type="password"]:focus {
+            border-color: #ff3b3b; /* フォーカス時に赤枠 */
+            box-shadow: 0 0 8px rgba(255, 59, 59, 0.5); /* 赤い光沢 */
+            outline: none; /* デフォルトのアウトラインを削除 */
+        }
+
         textarea {
             resize: vertical; /* 垂直方向のみリサイズ可能 */
+            min-height: 80px;
         }
+
+        /* ボタンのスタイル */
         button {
             display: block;
             width: 100%;
             padding: 12px 20px;
-            background-color: #00B900;
+            background-color: #ff3b3b; /* ボタンの背景色を赤に */
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 1.1em;
             font-weight: bold;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            margin-top: 15px;
         }
+
         button:hover {
-            background-color: #00A000;
+            background-color: #e02c2c; /* ホバー時に少し暗い赤に */
+            box-shadow: 0 0 12px rgba(255, 59, 59, 0.7); /* ホバー時にも光沢 */
         }
+
         button:disabled {
-            background-color: #cccccc;
+            background-color: #555; /* 無効時は濃いグレー */
             cursor: not-allowed;
+            box-shadow: none;
         }
+
+        /* ステータス表示エリア */
         #status {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            background-color: #e9e9e9;
+            margin-top: 25px;
+            padding: 15px;
+            border: 1px solid #ff3b3b; /* 枠線を赤に */
+            background-color: #222; /* 背景色を濃いグレーに */
             border-radius: 5px;
-            min-height: 30px; /* 表示領域確保 */
+            min-height: 40px;
+            color: #e0e0e0;
+            font-size: 0.95em;
+            text-align: center;
+            word-break: break-all; /* 長いメッセージの改行 */
         }
+
+        /* チェックボックスのスタイル */
         input[type="checkbox"] {
-            margin-right: 8px;
-            transform: scale(1.2); /* チェックボックスを少し大きく表示 */
+            margin-right: 10px;
+            transform: scale(1.3); /* チェックボックスを少し大きく表示 */
+            accent-color: #ff3b3b; /* チェックマークの色を赤に (モダンブラウザのみ) */
+        }
+
+        /* パスワード認証エリアのステータス表示 */
+        #passwordStatus {
+            color: #ff6666; /* 赤系のエラーメッセージ */
+            margin-top: 8px;
+            font-size: 0.9em;
+        }
+
+        /* 送信機能のコンテナを初期状態では非表示 */
+        #sendFunctionContainer {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <h1>LIFFメッセージ送信アプリ</h1>
+    <div id="app-container"> <h1>LINE Raider</h1> <div id="passwordArea">
+            <label for="passwordInput">パスワード:</label>
+            <input type="password" id="passwordInput" placeholder="パスワードを入力してください">
+            <button id="authenticateButton">認証</button>
+            <div id="passwordStatus"></div>
+        </div>
 
-    <div>
-        <label for="liffToken">LIFF Token (またはチャネルアクセストークン):</label>
-        <input type="text" id="liffToken" placeholder="LINE Developersで発行されたトークン">
+        <div id="sendFunctionContainer">
+            <div>
+                <label for="liffToken">LIFF Token (自動取得または入力):</label>
+                <input type="text" id="liffToken" placeholder="LINE Developersで発行されたトークン" readonly> </div>
+
+            <div>
+                <label for="messageText">送信メッセージ:</label>
+                <textarea id="messageText" rows="5" placeholder="送信したいメッセージを入力してください"></textarea>
+            </div>
+
+            <div>
+                <label for="sendCount">送信回数:</label>
+                <input type="number" id="sendCount" value="1" min="1">
+            </div>
+
+            <div>
+                <label for="sendSpeed">送信スピード (ミリ秒):</label>
+                <input type="number" id="sendSpeed" value="1000" min="100">
+            </div>
+
+            <div>
+                <label for="retryCount">リトライ回数 (レートリミット時):</label>
+                <input type="number" id="retryCount" value="3" min="0">
+            </div>
+
+            <div>
+                <input type="checkbox" id="addRandomString">
+                <label for="addRandomString">文末にランダム文字列を追加</label>
+            </div>
+
+            <button id="sendMessageButton">メッセージ送信</button>
+        </div>
+
+        <div id="status"></div>
     </div>
-
-    <div>
-        <label for="messageText">送信メッセージ:</label>
-        <textarea id="messageText" rows="5" placeholder="送信したいメッセージを入力してください"></textarea>
-    </div>
-
-    <div>
-        <label for="sendCount">送信回数:</label>
-        <input type="number" id="sendCount" value="1" min="1">
-    </div>
-
-    <div>
-        <label for="sendSpeed">送信スピード (ミリ秒):</label>
-        <input type="number" id="sendSpeed" value="1000" min="100">
-    </div>
-
-    <div>
-        <input type="checkbox" id="addRandomString">
-        <label for="addRandomString">文末にランダム文字列を追加</label>
-    </div>
-
-    <button id="sendMessageButton">メッセージ送信</button>
-
-    <div id="status"></div>
 
     <script>
-        // DOMContentLoaded: HTMLが完全に読み込まれ、パースされた後にスクリプトを実行する
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('DOMContentLoaded: HTML要素の読み込みが完了しました。');
+
+            const correctPassword = '充電無いよ‼️'; // 設定するパスワード
+
+            // HTML要素の取得
+            const passwordInput = document.getElementById('passwordInput');
+            const authenticateButton = document.getElementById('authenticateButton');
+            const passwordStatusDiv = document.getElementById('passwordStatus');
+            const passwordArea = document.getElementById('passwordArea');
+            const sendFunctionContainer = document.getElementById('sendFunctionContainer');
 
             const liffTokenInput = document.getElementById('liffToken');
             const messageTextInput = document.getElementById('messageText');
             const sendCountInput = document.getElementById('sendCount');
             const sendSpeedInput = document.getElementById('sendSpeed');
+            const retryCountInput = document.getElementById('retryCount');
             const addRandomStringCheckbox = document.getElementById('addRandomString');
             const sendMessageButton = document.getElementById('sendMessageButton');
             const statusDiv = document.getElementById('status');
@@ -121,22 +216,20 @@
             // LIFF初期化
             try {
                 console.log('LIFF SDKの初期化を開始します...');
-                // ここにあなたのLIFF IDを設定してください
-                await liff.init({ liffId: '2007556850-JYwBVNQp' });
+                await liff.init({ liffId: '2007556850-JYwBVNQp' }); // ★ここにあなたのLIFF IDを設定してください★
                 console.log('LIFF SDKの初期化に成功しました。');
 
                 if (!liff.isLoggedIn()) {
                     console.log('LIFFにログインしていません。ログイン処理を開始します。');
                     statusDiv.textContent = 'LIFFにログインしていません。ログインが必要です。';
-                    liff.login(); // ログインページへリダイレクト
+                    liff.login();
                 } else {
                     console.log('LIFFにログイン済みです。');
                     statusDiv.textContent = 'LIFFにログイン済みです。';
-                    // LIFFアクセストークンを自動取得して表示 (任意)
                     try {
                         const accessToken = liff.getAccessToken();
                         if (accessToken) {
-                            liffTokenInput.value = accessToken; // LIFF Tokenフィールドに自動入力
+                            liffTokenInput.value = accessToken;
                             console.log('LIFFアクセストークンを取得し、入力欄に設定しました。');
                         } else {
                             statusDiv.textContent += ' LIFFアクセストークンを取得できませんでした。';
@@ -150,10 +243,25 @@
             } catch (err) {
                 console.error('LIFF SDKの初期化に失敗しました。LIFF IDが正しいか、設定に誤りがないか確認してください。', err);
                 statusDiv.textContent = `LIFFの初期化に失敗しました。原因: ${err.message || '不明なエラー'}`;
-                // ボタンを無効化し、それ以上操作できないようにする
+                authenticateButton.disabled = true;
                 sendMessageButton.disabled = true;
-                return; // 初期化失敗したら以降の処理は行わない
+                return;
             }
+
+            // パスワード認証ボタンのイベントリスナー
+            authenticateButton.addEventListener('click', () => {
+                console.log('認証ボタンがクリックされました。');
+                if (passwordInput.value === correctPassword) {
+                    passwordStatusDiv.textContent = '';
+                    passwordArea.style.display = 'none';
+                    sendFunctionContainer.style.display = 'block';
+                    statusDiv.textContent = 'パスワード認証に成功しました。メッセージを送信できます。';
+                    console.log('パスワード認証成功。');
+                } else {
+                    passwordStatusDiv.textContent = 'パスワードが間違っています。';
+                    console.warn('パスワード認証失敗。');
+                }
+            });
 
             // ランダム文字列生成関数
             function generateRandomString(length) {
@@ -166,71 +274,101 @@
                 return result;
             }
 
+            // メッセージ送信関数（再試行ロジックを含む）
+            async function sendMessageWithRetry(message, maxRetries) {
+                let attempts = 0;
+                while (attempts <= maxRetries) {
+                    try {
+                        await liff.sendMessages([
+                            {
+                                type: 'text',
+                                text: message
+                            }
+                        ]);
+                        console.log(`メッセージ送信成功 (試行回数: ${attempts + 1})`);
+                        return true;
+                    } catch (error) {
+                        console.error(`メッセージ送信失敗 (試行回数: ${attempts + 1}):`, error);
+                        // レートリミットエラー (例: 429 Too Many Requests) の場合
+                        if (error.message && error.message.includes('too many requests')) {
+                            statusDiv.textContent = `レートリミット発生！ ${maxRetries - attempts}回再試行します...`;
+                            console.warn(`レートリミット発生。再試行します。`);
+                            attempts++;
+                            if (attempts <= maxRetries) {
+                                await new Promise(resolve => setTimeout(resolve, 5000 * attempts));
+                            } else {
+                                statusDiv.textContent = `メッセージ送信に失敗しました (再試行回数を超過)。`;
+                                console.error('メッセージ送信失敗: 再試行回数を超過しました。');
+                                return false; // 再試行回数を超過
+                            }
+                        } else {
+                            statusDiv.textContent = `メッセージ送信に失敗しました: ${error.message || '不明なエラー'}`;
+                            console.error('致命的なエラーのため再試行を中断。', error);
+                            return false;
+                        }
+                    }
+                }
+                return false; // ループを抜けたが成功しなかった場合
+            }
+
             // 送信ボタンのクリックイベントリスナー
             if (sendMessageButton) {
                 sendMessageButton.addEventListener('click', async () => {
                     console.log('送信ボタンがクリックされました。');
-                    const liffToken = liffTokenInput.value; // ユーザーが入力したトークン、または自動取得されたLIFFアクセストークン
+
+                    const liffToken = liffTokenInput.value;
                     let messageText = messageTextInput.value;
                     const sendCount = parseInt(sendCountInput.value, 10);
                     const sendSpeed = parseInt(sendSpeedInput.value, 10);
+                    const retryCount = parseInt(retryCountInput.value, 10);
                     const addRandomString = addRandomStringCheckbox.checked;
 
+                    // 入力値のバリデーション
                     if (!liffToken) {
                         statusDiv.textContent = 'LIFF Tokenが設定されていません。';
-                        console.warn('LIFF Tokenが設定されていません。');
                         return;
                     }
                     if (!messageText) {
                         statusDiv.textContent = '送信メッセージを入力してください。';
-                        console.warn('送信メッセージが入力されていません。');
                         return;
                     }
                     if (isNaN(sendCount) || sendCount < 1) {
                         statusDiv.textContent = '有効な送信回数を入力してください。(最低1回)';
-                        console.warn('送信回数が無効です。');
                         return;
                     }
-                    if (isNaN(sendSpeed) || sendSpeed < 100) { // 最低100ms
+                    if (isNaN(sendSpeed) || sendSpeed < 100) {
                         statusDiv.textContent = '有効な送信スピード (最低100ミリ秒) を入力してください。';
-                        console.warn('送信スピードが無効です。');
+                        return;
+                    }
+                    if (isNaN(retryCount) || retryCount < 0) {
+                        statusDiv.textContent = '有効なリトライ回数を入力してください。(最低0回)';
                         return;
                     }
 
                     statusDiv.textContent = '送信を開始します...';
-                    sendMessageButton.disabled = true; // 送信中はボタンを無効化
-                    console.log(`メッセージ送信開始: 回数=${sendCount}, スピード=${sendSpeed}ms, ランダム文字列追加=${addRandomString}`);
+                    sendMessageButton.disabled = true;
+                    console.log(`メッセージ送信開始: 回数=${sendCount}, スピード=${sendSpeed}ms, リトライ=${retryCount}, ランダム文字列追加=${addRandomString}`);
 
                     for (let i = 0; i < sendCount; i++) {
                         let currentMessage = messageText;
                         if (addRandomString) {
-                            currentMessage += ' ' + generateRandomString(10); // 10文字のランダム文字列を追加
+                            currentMessage += ' ' + generateRandomString(10);
                         }
-                        console.log(`メッセージ送信中 (${i + 1}/${sendCount}): "${currentMessage}"`);
+                        console.log(`メッセージ送信試行 (${i + 1}/${sendCount}): "${currentMessage}"`);
 
-                        try {
-                            await liff.sendMessages([
-                                {
-                                    type: 'text',
-                                    text: currentMessage
-                                }
-                            ]);
-                            statusDiv.textContent = `メッセージを送信しました (${i + 1}/${sendCount})`;
-                            console.log(`メッセージ送信成功 (${i + 1}/${sendCount})`);
-                        } catch (error) {
-                            console.error(`メッセージ送信失敗 (${i + 1}/${sendCount}):`, error);
-                            statusDiv.textContent = `メッセージ送信に失敗しました (${i + 1}/${sendCount}): ${error.message || '不明なエラー'}`;
-                            // エラーが発生したら送信を中断
+                        const success = await sendMessageWithRetry(currentMessage, retryCount);
+                        if (!success) {
+                            console.error('メッセージ送信処理が中断されました。');
                             break;
                         }
 
-                        // 最後のメッセージ以外は送信スピードで待機
                         if (i < sendCount - 1) {
+                            console.log(`次の送信まで ${sendSpeed}ms 待機します...`);
                             await new Promise(resolve => setTimeout(resolve, sendSpeed));
                         }
                     }
                     statusDiv.textContent += ' 送信が完了しました。';
-                    sendMessageButton.disabled = false; // 送信完了後にボタンを有効化
+                    sendMessageButton.disabled = false;
                     console.log('全てのメッセージ送信処理が完了しました。');
                 });
             } else {
