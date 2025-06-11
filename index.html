@@ -106,19 +106,9 @@
     <div id="status"></div>
 
     <script>
+        // DOMContentLoaded: HTMLが完全に読み込まれ、パースされた後にスクリプトを実行する
         document.addEventListener('DOMContentLoaded', async () => {
-            // LIFF初期化
-            try {
-                // ここにあなたのLIFF IDを設定してください
-                await liff.init({ liffId: '2007556850-JYwBVNQp' });
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                }
-            } catch (err) {
-                console.error('LIFF initialization failed', err);
-                document.getElementById('status').textContent = 'LIFFの初期化に失敗しました。';
-                return;
-            }
+            console.log('DOMContentLoaded: HTML要素の読み込みが完了しました。');
 
             const liffTokenInput = document.getElementById('liffToken');
             const messageTextInput = document.getElementById('messageText');
@@ -128,22 +118,41 @@
             const sendMessageButton = document.getElementById('sendMessageButton');
             const statusDiv = document.getElementById('status');
 
-            // LIFFアクセストークンを自動取得して表示 (任意)
-            if (liff.isLoggedIn()) {
-                try {
-                    const accessToken = liff.getAccessToken();
-                    if (accessToken) {
-                        liffTokenInput.value = accessToken; // LIFF Tokenフィールドに自動入力
-                        statusDiv.textContent = 'LIFFにログイン済みです。';
-                    } else {
-                        statusDiv.textContent = 'LIFFアクセストークンを取得できませんでした。';
+            // LIFF初期化
+            try {
+                console.log('LIFF SDKの初期化を開始します...');
+                // ここにあなたのLIFF IDを設定してください
+                await liff.init({ liffId: '2007556850-JYwBVNQp' });
+                console.log('LIFF SDKの初期化に成功しました。');
+
+                if (!liff.isLoggedIn()) {
+                    console.log('LIFFにログインしていません。ログイン処理を開始します。');
+                    statusDiv.textContent = 'LIFFにログインしていません。ログインが必要です。';
+                    liff.login(); // ログインページへリダイレクト
+                } else {
+                    console.log('LIFFにログイン済みです。');
+                    statusDiv.textContent = 'LIFFにログイン済みです。';
+                    // LIFFアクセストークンを自動取得して表示 (任意)
+                    try {
+                        const accessToken = liff.getAccessToken();
+                        if (accessToken) {
+                            liffTokenInput.value = accessToken; // LIFF Tokenフィールドに自動入力
+                            console.log('LIFFアクセストークンを取得し、入力欄に設定しました。');
+                        } else {
+                            statusDiv.textContent += ' LIFFアクセストークンを取得できませんでした。';
+                            console.warn('LIFFアクセストークンを取得できませんでした。');
+                        }
+                    } catch (error) {
+                        console.error('LIFFアクセストークンの取得に失敗しました:', error);
+                        statusDiv.textContent += ' LIFFアクセストークンの取得に失敗しました。';
                     }
-                } catch (error) {
-                    console.error('Failed to get LIFF access token', error);
-                    statusDiv.textContent = 'LIFFアクセストークンの取得に失敗しました。';
                 }
-            } else {
-                statusDiv.textContent = 'LIFFにログインしていません。ログインしてください。';
+            } catch (err) {
+                console.error('LIFF SDKの初期化に失敗しました。LIFF IDが正しいか、設定に誤りがないか確認してください。', err);
+                statusDiv.textContent = `LIFFの初期化に失敗しました。原因: ${err.message || '不明なエラー'}`;
+                // ボタンを無効化し、それ以上操作できないようにする
+                sendMessageButton.disabled = true;
+                return; // 初期化失敗したら以降の処理は行わない
             }
 
             // ランダム文字列生成関数
@@ -157,66 +166,77 @@
                 return result;
             }
 
-            sendMessageButton.addEventListener('click', async () => {
-                const liffToken = liffInput.value; // ユーザーが入力したトークン、または自動取得されたLIFFアクセストークン
-                let messageText = messageTextInput.value;
-                const sendCount = parseInt(sendCountInput.value, 10);
-                const sendSpeed = parseInt(sendSpeedInput.value, 10);
-                const addRandomString = addRandomStringCheckbox.checked;
+            // 送信ボタンのクリックイベントリスナー
+            if (sendMessageButton) {
+                sendMessageButton.addEventListener('click', async () => {
+                    console.log('送信ボタンがクリックされました。');
+                    const liffToken = liffTokenInput.value; // ユーザーが入力したトークン、または自動取得されたLIFFアクセストークン
+                    let messageText = messageTextInput.value;
+                    const sendCount = parseInt(sendCountInput.value, 10);
+                    const sendSpeed = parseInt(sendSpeedInput.value, 10);
+                    const addRandomString = addRandomStringCheckbox.checked;
 
-                if (!liffToken) {
-                    statusDiv.textContent = 'LIFF Tokenを設定してください。';
-                    return;
-                }
-                if (!messageText) {
-                    statusDiv.textContent = '送信メッセージを入力してください。';
-                    return;
-                }
-                if (isNaN(sendCount) || sendCount < 1) {
-                    statusDiv.textContent = '有効な送信回数を入力してください。';
-                    return;
-                }
-                if (isNaN(sendSpeed) || sendSpeed < 100) { // 最低100ms
-                    statusDiv.textContent = '有効な送信スピード (最低100ミリ秒) を入力してください。';
-                    return;
-                }
-
-                statusDiv.textContent = '送信を開始します...';
-                sendMessageButton.disabled = true;
-
-                for (let i = 0; i < sendCount; i++) {
-                    let currentMessage = messageText;
-                    if (addRandomString) {
-                        currentMessage += ' ' + generateRandomString(10); // 10文字のランダム文字列を追加
+                    if (!liffToken) {
+                        statusDiv.textContent = 'LIFF Tokenが設定されていません。';
+                        console.warn('LIFF Tokenが設定されていません。');
+                        return;
+                    }
+                    if (!messageText) {
+                        statusDiv.textContent = '送信メッセージを入力してください。';
+                        console.warn('送信メッセージが入力されていません。');
+                        return;
+                    }
+                    if (isNaN(sendCount) || sendCount < 1) {
+                        statusDiv.textContent = '有効な送信回数を入力してください。(最低1回)';
+                        console.warn('送信回数が無効です。');
+                        return;
+                    }
+                    if (isNaN(sendSpeed) || sendSpeed < 100) { // 最低100ms
+                        statusDiv.textContent = '有効な送信スピード (最低100ミリ秒) を入力してください。';
+                        console.warn('送信スピードが無効です。');
+                        return;
                     }
 
-                    try {
-                        // LIFF Message API を使用してFlex Messageを送信
-                        // 基本的にはテキストメッセージ送信を想定していますが、
-                        // 他の形式も送信できるように調整するためには、liff.sendMessages の引数を変更します。
-                        // 例: Flex Message, Image Messageなど
-                        await liff.sendMessages([
-                            {
-                                type: 'text',
-                                text: currentMessage
-                            }
-                        ]);
-                        statusDiv.textContent = `メッセージを送信しました (${i + 1}/${sendCount})`;
-                    } catch (error) {
-                        console.error('メッセージ送信失敗:', error);
-                        statusDiv.textContent = `メッセージ送信に失敗しました (${i + 1}/${sendCount}): ${error.message}`;
-                        // エラーが発生したら中断するかどうかは要件による
-                        break;
-                    }
+                    statusDiv.textContent = '送信を開始します...';
+                    sendMessageButton.disabled = true; // 送信中はボタンを無効化
+                    console.log(`メッセージ送信開始: 回数=${sendCount}, スピード=${sendSpeed}ms, ランダム文字列追加=${addRandomString}`);
 
-                    // 最後のメッセージ以外は送信スピードで待機
-                    if (i < sendCount - 1) {
-                        await new Promise(resolve => setTimeout(resolve, sendSpeed));
+                    for (let i = 0; i < sendCount; i++) {
+                        let currentMessage = messageText;
+                        if (addRandomString) {
+                            currentMessage += ' ' + generateRandomString(10); // 10文字のランダム文字列を追加
+                        }
+                        console.log(`メッセージ送信中 (${i + 1}/${sendCount}): "${currentMessage}"`);
+
+                        try {
+                            await liff.sendMessages([
+                                {
+                                    type: 'text',
+                                    text: currentMessage
+                                }
+                            ]);
+                            statusDiv.textContent = `メッセージを送信しました (${i + 1}/${sendCount})`;
+                            console.log(`メッセージ送信成功 (${i + 1}/${sendCount})`);
+                        } catch (error) {
+                            console.error(`メッセージ送信失敗 (${i + 1}/${sendCount}):`, error);
+                            statusDiv.textContent = `メッセージ送信に失敗しました (${i + 1}/${sendCount}): ${error.message || '不明なエラー'}`;
+                            // エラーが発生したら送信を中断
+                            break;
+                        }
+
+                        // 最後のメッセージ以外は送信スピードで待機
+                        if (i < sendCount - 1) {
+                            await new Promise(resolve => setTimeout(resolve, sendSpeed));
+                        }
                     }
-                }
-                statusDiv.textContent += ' 送信が完了しました。';
-                sendMessageButton.disabled = false;
-            });
+                    statusDiv.textContent += ' 送信が完了しました。';
+                    sendMessageButton.disabled = false; // 送信完了後にボタンを有効化
+                    console.log('全てのメッセージ送信処理が完了しました。');
+                });
+            } else {
+                console.error('IDが"sendMessageButton"のボタンが見つかりません。HTMLを確認してください。');
+                statusDiv.textContent = 'エラー: 送信ボタンが見つかりません。';
+            }
         });
     </script>
 </body>
