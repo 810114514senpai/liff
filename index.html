@@ -1,45 +1,223 @@
 <!DOCTYPE html>
 <html lang="ja">
-    <head>
-        <meta charset="UTF-8">
-        <meta http-equiv="Cache-Control" content="no-cache">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>LIFF-APP</title>
-        <link href="./style.css" rel="stylesheet">
-        </head>
-    <body>
-        <div id="main">
-        <h1>LIFFツールv3</h1>
-        <h2 style="color:red;">!!!!悪用厳禁!!!!</h2>
-        <h2>OC内でのliffからのメッセージ送信は出来なくなりました</h2>
-        <p>
-            <span id="err"></span>
-        </p>
-        <p>liff-token:<input type="text" id="token" value="null"><button type="button" onclick="set()">設定</button></p>
-        <div class="button-group">
-            <button type="button" onclick="pc()">tokenを転送</button>
-            <button type="button" onclick="clos()">tokenを保持して閉じる(a)</button>
-            <button type="button" onclick="openB()">ブラウザで開く</button>
-        </div>
-        <p>
-            メッセージ送信:<input type="text" id="test" value="てすと">
-            <input type="checkbox" id="addRandomString">ランダム文字列を追加
-            <button type="button" onclick="test()">送信</button>
-        </p>
-        <div class="button-group">
-            <button type="button" onclick="kuni()">unicode解析</button>
-            <button type="button" onclick="url()">通報リンク変換</button>
-            <button type="button" onclick="uni()">ユニコ自動連投</button>
-            <button type="button" onclick="flex()">Flexメッセージ生成</button>
-            <button type="button" onclick="tUni()">多機能連投</button>
-            <button type="button" onclick="help()">使い方/ヘルプ</button>
-        </div>
-        <div id="app"></div><br><br><p><a href="https://line.me/R/oaMessage/@228jbgfo/">バグ報告・質問等はこちらへ</a></p>
-        <p>その他のツール</p>
-        <p><a href="https://liff-tool.f5.si/url/create.html">規制url回避</a><br><a href="https://liff-tool.f5.si/tool">オプurl変換</a></p>
-        </div>
-        <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
-        <script src="./scr.js"></script>
-    </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIFFメッセージ送信アプリ</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        h1 {
+            color: #00B900;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        div {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        textarea,
+        input[type="number"],
+        select {
+            width: calc(100% - 16px); /* paddingを考慮 */
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        textarea {
+            resize: vertical; /* 垂直方向のみリサイズ可能 */
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            background-color: #00B900;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #00A000;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #e9e9e9;
+            border-radius: 5px;
+            min-height: 30px; /* 表示領域確保 */
+        }
+        input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2); /* チェックボックスを少し大きく表示 */
+        }
+    </style>
+</head>
+<body>
+    <h1>LIFFメッセージ送信アプリ</h1>
+
+    <div>
+        <label for="liffToken">LIFF Token (またはチャネルアクセストークン):</label>
+        <input type="text" id="liffToken" placeholder="LINE Developersで発行されたトークン">
+    </div>
+
+    <div>
+        <label for="messageText">送信メッセージ:</label>
+        <textarea id="messageText" rows="5" placeholder="送信したいメッセージを入力してください"></textarea>
+    </div>
+
+    <div>
+        <label for="sendCount">送信回数:</label>
+        <input type="number" id="sendCount" value="1" min="1">
+    </div>
+
+    <div>
+        <label for="sendSpeed">送信スピード (ミリ秒):</label>
+        <input type="number" id="sendSpeed" value="1000" min="100">
+    </div>
+
+    <div>
+        <input type="checkbox" id="addRandomString">
+        <label for="addRandomString">文末にランダム文字列を追加</label>
+    </div>
+
+    <button id="sendMessageButton">メッセージ送信</button>
+
+    <div id="status"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // LIFF初期化
+            try {
+                // ここにあなたのLIFF IDを設定してください
+                await liff.init({ liffId: '2007556850-JYwBVNQp' });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                }
+            } catch (err) {
+                console.error('LIFF initialization failed', err);
+                document.getElementById('status').textContent = 'LIFFの初期化に失敗しました。';
+                return;
+            }
+
+            const liffTokenInput = document.getElementById('liffToken');
+            const messageTextInput = document.getElementById('messageText');
+            const sendCountInput = document.getElementById('sendCount');
+            const sendSpeedInput = document.getElementById('sendSpeed');
+            const addRandomStringCheckbox = document.getElementById('addRandomString');
+            const sendMessageButton = document.getElementById('sendMessageButton');
+            const statusDiv = document.getElementById('status');
+
+            // LIFFアクセストークンを自動取得して表示 (任意)
+            if (liff.isLoggedIn()) {
+                try {
+                    const accessToken = liff.getAccessToken();
+                    if (accessToken) {
+                        liffTokenInput.value = accessToken; // LIFF Tokenフィールドに自動入力
+                        statusDiv.textContent = 'LIFFにログイン済みです。';
+                    } else {
+                        statusDiv.textContent = 'LIFFアクセストークンを取得できませんでした。';
+                    }
+                } catch (error) {
+                    console.error('Failed to get LIFF access token', error);
+                    statusDiv.textContent = 'LIFFアクセストークンの取得に失敗しました。';
+                }
+            } else {
+                statusDiv.textContent = 'LIFFにログインしていません。ログインしてください。';
+            }
+
+            // ランダム文字列生成関数
+            function generateRandomString(length) {
+                const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let result = '';
+                const charactersLength = characters.length;
+                for (let i = 0; i < length; i++) {
+                    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+                }
+                return result;
+            }
+
+            sendMessageButton.addEventListener('click', async () => {
+                const liffToken = liffInput.value; // ユーザーが入力したトークン、または自動取得されたLIFFアクセストークン
+                let messageText = messageTextInput.value;
+                const sendCount = parseInt(sendCountInput.value, 10);
+                const sendSpeed = parseInt(sendSpeedInput.value, 10);
+                const addRandomString = addRandomStringCheckbox.checked;
+
+                if (!liffToken) {
+                    statusDiv.textContent = 'LIFF Tokenを設定してください。';
+                    return;
+                }
+                if (!messageText) {
+                    statusDiv.textContent = '送信メッセージを入力してください。';
+                    return;
+                }
+                if (isNaN(sendCount) || sendCount < 1) {
+                    statusDiv.textContent = '有効な送信回数を入力してください。';
+                    return;
+                }
+                if (isNaN(sendSpeed) || sendSpeed < 100) { // 最低100ms
+                    statusDiv.textContent = '有効な送信スピード (最低100ミリ秒) を入力してください。';
+                    return;
+                }
+
+                statusDiv.textContent = '送信を開始します...';
+                sendMessageButton.disabled = true;
+
+                for (let i = 0; i < sendCount; i++) {
+                    let currentMessage = messageText;
+                    if (addRandomString) {
+                        currentMessage += ' ' + generateRandomString(10); // 10文字のランダム文字列を追加
+                    }
+
+                    try {
+                        // LIFF Message API を使用してFlex Messageを送信
+                        // 基本的にはテキストメッセージ送信を想定していますが、
+                        // 他の形式も送信できるように調整するためには、liff.sendMessages の引数を変更します。
+                        // 例: Flex Message, Image Messageなど
+                        await liff.sendMessages([
+                            {
+                                type: 'text',
+                                text: currentMessage
+                            }
+                        ]);
+                        statusDiv.textContent = `メッセージを送信しました (${i + 1}/${sendCount})`;
+                    } catch (error) {
+                        console.error('メッセージ送信失敗:', error);
+                        statusDiv.textContent = `メッセージ送信に失敗しました (${i + 1}/${sendCount}): ${error.message}`;
+                        // エラーが発生したら中断するかどうかは要件による
+                        break;
+                    }
+
+                    // 最後のメッセージ以外は送信スピードで待機
+                    if (i < sendCount - 1) {
+                        await new Promise(resolve => setTimeout(resolve, sendSpeed));
+                    }
+                }
+                statusDiv.textContent += ' 送信が完了しました。';
+                sendMessageButton.disabled = false;
+            });
+        });
+    </script>
+</body>
 </html>
