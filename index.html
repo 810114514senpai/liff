@@ -125,13 +125,18 @@
             color: #e0e0e0;
             font-size: 0.95em;
             word-break: break-all; /* 長いメッセージの改行 */
-            max-height: 300px; /* 最大高さを設定 */
-            overflow-y: auto; /* 溢れたらスクロール */
+            overflow-y: auto; /* スクロール可能にする */
+            max-height: 200px; /* 最大高さを設定 */
+        }
+        #status div {
+            margin-bottom: 5px; /* 各ログエントリー間のスペース */
+            padding-bottom: 3px;
+            border-bottom: 1px dashed #333; /* 区切り線 */
+        }
+        #status div:last-child {
+            border-bottom: none; /* 最後の要素には下線なし */
         }
 
-        #status p {
-            margin: 5px 0; /* 各ログ行の上下マージン */
-        }
 
         /* チェックボックスのスタイル */
         input[type="checkbox"] {
@@ -179,8 +184,8 @@
 
         <div id="sendFunctionContainer">
             <div>
-                <label for="liffTokens">現在のLIFFアクセストークン (情報表示のみ):</label>
-                <textarea id="liffTokens" rows="2" placeholder="LIFFログインで取得されたアクセストークンが表示されます" readonly></textarea>
+                <label for="liffTokens">LIFF Tokens (改行区切りで複数入力可):</label>
+                <textarea id="liffTokens" rows="5" placeholder="LINE Developersで発行されたトークンを改行区切りで入力してください"></textarea>
             </div>
 
             <div>
@@ -234,6 +239,304 @@
         <div id="status"></div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOMContentLoaded: HTML要素の読み込みが完了しました。');
+
+            // パスワード認証 (セキュリティリスクに注意してください。本番環境ではサーバーサイドで認証を実装すべきです。)
+            const correctPassword = 'ohayou-ruruRaider';
+
+            // HTML要素の取得
+            const passwordInput = document.getElementById('passwordInput');
+            const authenticateButton = document.getElementById('authenticateButton');
+            const passwordStatusDiv = document.getElementById('passwordStatus');
+            const passwordArea = document.getElementById('passwordArea');
+            const sendFunctionContainer = document.getElementById('sendFunctionContainer');
+
+            const liffTokensTextarea = document.getElementById('liffTokens');
+            const messageTextInput = document.getElementById('messageText');
+            const sendCountInput = document.getElementById('sendCount');
+            const sendSpeedInput = document.getElementById('sendSpeed');
+            const retryCountInput = document.getElementById('retryCount');
+            const addRandomStringCheckbox = document.getElementById('addRandomString');
+            const sendMessageButton = document.getElementById('sendMessageButton');
+
+            const jsonPayloadInput = document.getElementById('jsonPayload');
+            const jsonSendCountInput = document.getElementById('jsonSendCount');
+            const jsonSendSpeedInput = document.getElementById('jsonSendSpeed');
+            const sendJsonButton = document.getElementById('sendJsonButton');
+
+            const statusDiv = document.getElementById('status');
+
+            // ログ表示のヘルパー関数（既存のログを上書きせず、下に新しいログを追加）
+            function updateStatus(message, type = 'info', tokenPrefix = '') {
+                const logEntry = document.createElement('div');
+                let prefix = '';
+                let color = '';
+                
+                if (type === 'success') {
+                    prefix = '[+] ';
+                    color = '#4CAF50'; // Green
+                } else if (type === 'error') {
+                    prefix = '[-] ';
+                    color = '#F44336'; // Red
+                } else { // info
+                    prefix = '[i] ';
+                    color = '#e0e0e0'; // Light grey
+                }
+
+                logEntry.innerHTML = `<span style="color:${color}">${prefix}${tokenPrefix ? `(Token: ${tokenPrefix}) ` : ''}${message}</span>`;
+                statusDiv.appendChild(logEntry); // 新しいログを下に追加
+
+                // ログエントリーが多すぎる場合、古いものを削除して表示数を制限
+                while (statusDiv.children.length > 50) { // 最新の50件を保持
+                    statusDiv.removeChild(statusDiv.firstChild);
+                }
+                // 最新のログが表示されるようにスクロール
+                statusDiv.scrollTop = statusDiv.scrollHeight;
+                console.log(`${prefix}${tokenPrefix ? `(Token: ${tokenPrefix}) ` : ''}${message}`);
+            }
+
+            // LIFF初期化
+            try {
+                updateStatus('LIFF SDKの初期化を開始します...', 'info');
+                // ここにあなたのLIFF IDを設定してください。
+                // 例: await liff.init({ liffId: '2007556850-JYwBVNQp' });
+                await liff.init({ liffId: 'YOUR_LIFF_ID' }); 
+                updateStatus('LIFF SDKの初期化に成功しました。', 'success');
+
+                if (!liff.isLoggedIn()) {
+                    updateStatus('LIFFにログインしていません。ログインが必要です。', 'info');
+                    liff.login();
+                } else {
+                    updateStatus('LIFFにログイン済みです。', 'info');
+                    try {
+                        const accessToken = liff.getAccessToken();
+                        if (accessToken) {
+                            // アプリ起動時に取得したトークンをデフォルトでセット（ユーザーが編集可能）
+                            liffTokensTextarea.value = accessToken;
+                            updateStatus('LIFFアクセストークンを取得し、入力欄に設定しました。', 'success', accessToken.substring(0, 5));
+                        } else {
+                            updateStatus('LIFFアクセストークンを取得できませんでした。', 'error');
+                        }
+                    } catch (error) {
+                        updateStatus(`LIFFアクセストークンの取得に失敗しました: ${error.message}`, 'error');
+                    }
+                }
+            } catch (err) {
+                updateStatus(`LIFF SDKの初期化に失敗しました。LIFF IDが正しいか、設定に誤りがないか確認してください。原因: ${err.message || '不明なエラー'}`, 'error');
+                authenticateButton.disabled = true;
+                sendMessageButton.disabled = true;
+                sendJsonButton.disabled = true;
+                return;
+            }
+
+            // パスワード認証ボタンのイベントリスナー
+            authenticateButton.addEventListener('click', () => {
+                updateStatus('認証ボタンがクリックされました。', 'info');
+                if (passwordInput.value === correctPassword) {
+                    passwordStatusDiv.textContent = '';
+                    passwordArea.style.display = 'none';
+                    sendFunctionContainer.style.display = 'block';
+                    updateStatus('パスワード認証に成功しました。メッセージを送信できます。', 'success');
+                } else {
+                    passwordStatusDiv.textContent = 'パスワードが間違っています。';
+                    updateStatus('パスワード認証失敗。', 'error');
+                }
+            });
+
+            // ランダム文字列生成関数
+            function generateRandomString(length) {
+                const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let result = '';
+                const charactersLength = characters.length;
+                for (let i = 0; i < length; i++) {
+                    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+                }
+                return result;
+            }
+
+            // メッセージ送信関数（再試行ロジックを含む）
+            // LIFF SDKは内部的に現在のLIFFトークンを使用するため、トークン自体を引数で渡す必要はありません。
+            // tokenPrefixはログ表示のためだけに存在します。
+            async function sendMessageWithRetry(messages, maxRetries, tokenPrefix = '') {
+                let attempts = 0;
+                while (attempts <= maxRetries) {
+                    try {
+                        await liff.sendMessages(messages);
+                        updateStatus(`メッセージ送信成功 (試行回数: ${attempts + 1})`, 'success', tokenPrefix);
+                        return true;
+                    } catch (error) {
+                        updateStatus(`メッセージ送信失敗 (試行回数: ${attempts + 1}): ${error.message || '不明なエラー'}`, 'error', tokenPrefix);
+                        // レートリミットエラー (例: "too many requests" や 特定のHTTPステータスコード) の場合
+                        if (error.message && error.message.includes('too many requests')) {
+                            updateStatus(`レートリミット発生！ ${maxRetries - attempts}回再試行します...`, 'error', tokenPrefix);
+                            attempts++;
+                            if (attempts <= maxRetries) {
+                                await new Promise(resolve => setTimeout(resolve, 5000 * attempts)); // 5秒 * 試行回数 待機
+                            } else {
+                                updateStatus(`メッセージ送信に失敗しました (再試行回数を超過)。`, 'error', tokenPrefix);
+                                return false; // 再試行回数を超過
+                            }
+                        } else {
+                            updateStatus(`致命的なエラーのため再試行を中断。`, 'error', tokenPrefix);
+                            return false; // 致命的なエラー
+                        }
+                    }
+                }
+                return false; // ループを抜けたが成功しなかった場合
+            }
+
+            // 送信ボタンのクリックイベントリスナー (通常メッセージ)
+            if (sendMessageButton) {
+                sendMessageButton.addEventListener('click', async () => {
+                    updateStatus('メッセージ送信ボタンがクリックされました。', 'info');
+
+                    // LIFF Tokens入力欄はユーザーがどのトークンで操作しているかを示すためのものであり、
+                    // 実際の sendMessages 呼び出しには LIFF SDK が内部で管理する現在のトークンが使われます。
+                    // 複数行にトークンを入力しても、LIFF SDK の初期化が1回の場合は最初のトークンしか機能しません。
+                    const liffTokens = liffTokensTextarea.value.split('\n').map(token => token.trim()).filter(token => token);
+                    let messageText = messageTextInput.value;
+                    const sendCount = parseInt(sendCountInput.value, 10);
+                    const sendSpeed = parseInt(sendSpeedInput.value, 10);
+                    const retryCount = parseInt(retryCountInput.value, 10);
+                    const addRandomString = addRandomStringCheckbox.checked;
+
+                    // バリデーション
+                    if (liffTokens.length === 0) {
+                        updateStatus('LIFF Tokenが設定されていません。LIFF SDKが正常に初期化されていない可能性があります。', 'error');
+                        return;
+                    }
+                    if (!messageText) {
+                        updateStatus('送信メッセージを入力してください。', 'error');
+                        return;
+                    }
+                    if (isNaN(sendCount) || sendCount < 1) {
+                        updateStatus('有効な送信回数を入力してください。(最低1回)', 'error');
+                        return;
+                    }
+                    if (isNaN(sendSpeed) || sendSpeed < 100) {
+                        updateStatus('有効な送信スピード (最低100ミリ秒) を入力してください。', 'error');
+                        return;
+                    }
+                    if (isNaN(retryCount) || retryCount < 0) {
+                        updateStatus('有効なリトライ回数を入力してください。(最低0回)', 'error');
+                        return;
+                    }
+
+                    updateStatus('メッセージ送信を開始します...', 'info');
+                    sendMessageButton.disabled = true;
+                    sendJsonButton.disabled = true; // 他の送信ボタンも無効化
+
+                    const sendPromises = [];
+                    // ログ表示のため、現在LIFF SDKが使用している可能性のあるトークンのプレフィックスを取得
+                    const currentLiffTokenPrefix = liff.getAccessToken() ? liff.getAccessToken().substring(0, 5) : 'N/A'; 
+
+                    for (let i = 0; i < sendCount; i++) {
+                        let currentMessage = messageText;
+                        if (addRandomString) {
+                            currentMessage += ' ' + generateRandomString(10);
+                        }
+
+                        // 各メッセージ送信をPromiseとして配列に追加
+                        sendPromises.push(
+                            (async (msg, index) => {
+                                // 指定された送信スピードで各送信を遅延させる
+                                await new Promise(resolve => setTimeout(resolve, index * sendSpeed));
+                                updateStatus(`メッセージ送信試行 (${index + 1}/${sendCount}): "${msg.substring(0, Math.min(msg.length, 20))}..."`, 'info', currentLiffTokenPrefix);
+                                return await sendMessageWithRetry([{ type: 'text', text: msg }], retryCount, currentLiffTokenPrefix);
+                            })(currentMessage, i)
+                        );
+                    }
+
+                    // 全てのメッセージ送信が完了するのを待つ
+                    await Promise.all(sendPromises);
+
+                    updateStatus('全てのメッセージ送信が完了しました。', 'success');
+                    sendMessageButton.disabled = false;
+                    sendJsonButton.disabled = false;
+                });
+            } else {
+                updateStatus('エラー: IDが"sendMessageButton"のボタンが見つかりません。HTMLを確認してください。', 'error');
+            }
+
+            // JSON送信ボタンのクリックイベントリスナー
+            if (sendJsonButton) {
+                sendJsonButton.addEventListener('click', async () => {
+                    updateStatus('JSONメッセージ送信ボタンがクリックされました。', 'info');
+
+                    const liffTokens = liffTokensTextarea.value.split('\n').map(token => token.trim()).filter(token => token);
+                    const jsonPayloadString = jsonPayloadInput.value;
+                    const jsonSendCount = parseInt(jsonSendCountInput.value, 10);
+                    const jsonSendSpeed = parseInt(jsonSendSpeedInput.value, 10);
+                    const retryCount = parseInt(retryCountInput.value, 10);
+
+                    // バリデーション
+                    if (liffTokens.length === 0) {
+                        updateStatus('LIFF Tokenが設定されていません。LIFF SDKが正常に初期化されていない可能性があります。', 'error');
+                        return;
+                    }
+                    if (!jsonPayloadString) {
+                        updateStatus('JSONペイロードを入力してください。', 'error');
+                        return;
+                    }
+                    if (isNaN(jsonSendCount) || jsonSendCount < 1) {
+                        updateStatus('有効なJSON送信回数を入力してください。(最低1回)', 'error');
+                        return;
+                    }
+                    if (isNaN(jsonSendSpeed) || jsonSendSpeed < 100) {
+                        updateStatus('有効なJSON送信スピード (最低100ミリ秒) を入力してください。', 'error');
+                        return;
+                    }
+                    if (isNaN(retryCount) || retryCount < 0) {
+                        updateStatus('有効なリトライ回数を入力してください。(最低0回)', 'error');
+                        return;
+                    }
+
+                    let payload;
+                    try {
+                        payload = JSON.parse(jsonPayloadString);
+                        // LIFFのsendMessagesはメッセージオブジェクトの配列を期待するため、
+                        // 単一のJSONオブジェクトが入力された場合は配列に変換する
+                        if (!Array.isArray(payload)) {
+                            payload = [payload];
+                        }
+                    } catch (e) {
+                        updateStatus(`JSONペイロードの形式が正しくありません: ${e.message}`, 'error');
+                        return;
+                    }
+
+                    updateStatus('JSONメッセージ送信を開始します...', 'info');
+                    sendMessageButton.disabled = true; // 他の送信ボタンも無効化
+                    sendJsonButton.disabled = true;
+
+                    const sendPromises = [];
+                    // ログ表示のため、現在LIFF SDKが使用している可能性のあるトークンのプレフィックスを取得
+                    const currentLiffTokenPrefix = liff.getAccessToken() ? liff.getAccessToken().substring(0, 5) : 'N/A'; 
+
+                    for (let i = 0; i < jsonSendCount; i++) {
+                        // 各JSONメッセージ送信をPromiseとして配列に追加
+                        sendPromises.push(
+                            (async (pld, index) => {
+                                // 指定された送信スピードで各送信を遅延させる
+                                await new Promise(resolve => setTimeout(resolve, index * jsonSendSpeed));
+                                updateStatus(`JSON送信試行 (${index + 1}/${jsonSendCount})`, 'info', currentLiffTokenPrefix);
+                                return await sendMessageWithRetry(pld, retryCount, currentLiffTokenPrefix);
+                            })(payload, i) // sendMessageWithRetryはメッセージオブジェクトの配列を期待
+                        );
+                    }
+
+                    // 全てのJSONメッセージ送信が完了するのを待つ
+                    await Promise.all(sendPromises);
+
+                    updateStatus('全てのJSONメッセージ送信が完了しました。', 'success');
+                    sendMessageButton.disabled = false;
+                    sendJsonButton.disabled = false;
+                });
+            } else {
+                updateStatus('エラー: IDが"sendJsonButton"のボタンが見つかりません。HTMLを確認してください。', 'error');
+            }
+        });
+    </script>
 </body>
 </html>
